@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>World Development Indicators — Assignment 3</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/topojson/3.0.2/topojson.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',sans-serif;background:#0f1117;color:#e8eaf6;min-height:100vh}
+header{background:#1a1d2e;border-bottom:1px solid #2d3150;padding:14px 20px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px}
+header h1{font-size:17px;font-weight:600}
+header p{font-size:11px;color:#8b92b8;margin-top:2px}
+.badge{background:#2d3150;border:1px solid #3d4470;border-radius:6px;padding:3px 10px;font-size:11px;color:#8b92b8}
+.container{padding:14px 18px;max-width:1500px;margin:0 auto}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px}
+.sc{background:#1a1d2e;border:1px solid #2d3150;border-radius:8px;padding:10px 14px}
+.sc .sv{font-size:22px;font-weight:600}
+.sc .sl{font-size:11px;color:#8b92b8;margin-top:2px}
+.ibar{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+.itag{background:#1a1d2e;border:1px solid #2d3150;border-radius:20px;padding:3px 12px;font-size:10px;color:#8b92b8}
+.itag b{color:#7986cb}
+.toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;background:#1a1d2e;border:1px solid #2d3150;border-radius:10px;padding:10px 14px;margin-bottom:12px}
+.toolbar label{font-size:11px;color:#8b92b8;white-space:nowrap}
+select,input[type=range]{background:#0f1117;color:#e8eaf6;border:1px solid #2d3150;border-radius:6px;padding:4px 7px;font-size:11px}
+.bg{display:flex;gap:3px}
+.bg button{background:#0f1117;color:#8b92b8;border:1px solid #2d3150;border-radius:5px;padding:3px 10px;font-size:10px;cursor:pointer;transition:all .12s}
+.bg button:hover{background:#2d3150;color:#e8eaf6}
+.bg button.on{background:#3949ab;color:#fff;border-color:#3949ab}
+.enc.on{background:#1b5e20 !important;color:#a5d6a7 !important;border-color:#2e7d32 !important}
+.menc.on{background:#4a148c !important;color:#ce93d8 !important;border-color:#6a1b9a !important}
+.sep{width:1px;height:18px;background:#2d3150;align-self:center}
+.row2{display:grid;grid-template-columns:1.45fr 1fr;gap:12px;margin-bottom:12px}
+.row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px}
+.cb{background:#1a1d2e;border:1px solid #2d3150;border-radius:10px;padding:12px 14px}
+.cb h3{font-size:11px;color:#8b92b8;font-weight:400;margin-bottom:8px;line-height:1.4}
+.leg{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+.li{display:flex;align-items:center;gap:4px;font-size:10px;color:#8b92b8;cursor:pointer}
+.li:hover{color:#e8eaf6}
+.ld{width:9px;height:9px;border-radius:50%;flex-shrink:0}
+.dp{background:#1a1d2e;border:1px solid #2d3150;border-radius:10px;padding:12px 14px}
+.dg{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-top:10px}
+.dc{background:#0f1117;border:1px solid #2d3150;border-radius:8px;padding:9px;text-align:center}
+.dc .dv{font-size:16px;font-weight:600}
+.dc .dl{font-size:10px;color:#8b92b8;margin-top:2px}
+.cnt{font-size:10px;color:#8b92b8;margin-left:auto}
+#mapsvg path{cursor:pointer;transition:opacity .12s}
+#mapsvg path:hover{opacity:0.7}
+@media(max-width:900px){.row2,.row3{grid-template-columns:1fr}.stats{grid-template-columns:1fr 1fr}.dg{grid-template-columns:1fr 1fr}}
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>🌍 World Development Indicators — Interactive Visualization</h1>
+    <p>95 countries · 6 variables: GDP, Population, Life Expectancy, CO₂ Emissions, Internet Usage, Literacy Rate</p>
+  </div>
+  <div style="display:flex;gap:6px;flex-wrap:wrap">
+    <span class="badge">7 Interaction Types</span>
+    <span class="badge">5 Chart Types + World Map</span>
+  </div>
+</header>
+<div class="container">
+  <div class="ibar">
+    <span class="itag"><b>① Select</b> Click bubble/bar/map country</span>
+    <span class="itag"><b>② Filter</b> Region + GDP slider</span>
+    <span class="itag"><b>③ Encode</b> Change X/Y axis + map color</span>
+    <span class="itag"><b>④ Connect</b> Hover links scatter ↔ donut</span>
+    <span class="itag"><b>⑤ Reconfigure</b> Scatter ↔ Bar</span>
+    <span class="itag"><b>⑥ Elaborate</b> Click → full detail panel</span>
+    <span class="itag"><b>⑦ Abstract</b> Regional averages mode</span>
+  </div>
+  <div class="stats">
+    <div class="sc"><div class="sv" id="s1">95</div><div class="sl">Countries shown</div></div>
+    <div class="sc"><div class="sv" id="s2">—</div><div class="sl">Total GDP</div></div>
+    <div class="sc"><div class="sv" id="s3">—</div><div class="sl">Avg life expectancy</div></div>
+    <div class="sc"><div class="sv" id="s4">—</div><div class="sl">Avg internet usage</div></div>
+  </div>
+  <div class="toolbar">
+    <label>② Filter — Region:</label>
+    <select id="rf">
+      <option value="all">All regions</option>
+      <option value="Asia">Asia</option>
+      <option value="Europe">Europe</option>
+      <option value="Africa">Africa</option>
+      <option value="Americas">Americas</option>
+      <option value="Oceania">Oceania</option>
+    </select>
+    <label>Min GDP:</label>
+    <input type="range" id="gf" min="0" max="50" value="0" step="1" style="width:90px">
+    <span id="gv" style="font-size:10px;color:#8b92b8;min-width:42px">≥ $0T</span>
+    <div class="sep"></div>
+    <label>③ Encode — X axis:</label>
+    <div class="bg">
+      <button id="ex-gdp" class="enc on" onclick="setX('gdp')">GDP</button>
+      <button id="ex-co2" class="enc" onclick="setX('co2')">CO₂</button>
+      <button id="ex-net" class="enc" onclick="setX('net')">Internet</button>
+    </div>
+    <label>Y axis:</label>
+    <div class="bg">
+      <button id="ey-life" class="enc on" onclick="setY('life')">Life exp</button>
+      <button id="ey-lit" class="enc" onclick="setY('lit')">Literacy</button>
+      <button id="ey-gdp" class="enc" onclick="setY('gdp')">GDP</button>
+    </div>
+    <div class="sep"></div>
+    <label>Map color:</label>
+    <div class="bg">
+      <button id="mc-gdp" class="menc on" onclick="setMap('gdp')">GDP</button>
+      <button id="mc-life" class="menc" onclick="setMap('life')">Life exp</button>
+      <button id="mc-co2" class="menc" onclick="setMap('co2')">CO₂</button>
+      <button id="mc-net" class="menc" onclick="setMap('net')">Internet</button>
+    </div>
+    <div class="sep"></div>
+    <label>⑤ Reconfigure:</label>
+    <div class="bg">
+      <button id="vs" class="on" onclick="setView('scatter')">Scatter</button>
+      <button id="vb" onclick="setView('bar')">Bar</button>
+    </div>
+    <div class="sep"></div>
+    <button id="ab" onclick="toggleAbs()" style="font-size:10px;padding:3px 10px;border-radius:5px;cursor:pointer;border:1px solid #2d3150;background:#0f1117;color:#8b92b8">⑦ Regional avg</button>
+    <span class="cnt" id="cnt">95 countries</span>
+  </div>
+  <div class="row2">
+    <div class="cb">
+      <h3 id="st">① Scatter: GDP vs Life Expectancy — bubble = population · hover to connect · click to elaborate</h3>
+      <div style="position:relative;height:310px"><canvas id="sch"></canvas></div>
+      <div class="leg" id="leg1"></div>
+    </div>
+    <div class="cb">
+      <h3 id="mt">③ World map — GDP · click country to elaborate</h3>
+      <div id="mapwrap"></div>
+      <div style="font-size:10px;color:#4a5080;margin-top:4px">Click any country on the map to select it</div>
+    </div>
+  </div>
+  <div class="row3">
+    <div class="cb">
+      <h3>Top 10 countries by GDP · click to elaborate</h3>
+      <div style="position:relative;height:300px"><canvas id="bch"></canvas></div>
+    </div>
+    <div class="cb">
+      <h3>④ CO₂ vs Life expectancy by region</h3>
+      <div style="position:relative;height:260px"><canvas id="lch"></canvas></div>
+      <div style="font-size:10px;color:#8b92b8;margin-top:6px;display:flex;gap:14px">
+        <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;background:#4fc3f799;display:inline-block;border-radius:2px"></span>Avg CO₂ (bars)</span>
+        <span style="display:flex;align-items:center;gap:4px"><span style="width:18px;height:2px;background:#ff8a65;display:inline-block"></span>Avg life exp (line)</span>
+      </div>
+    </div>
+    <div class="cb">
+      <h3>④ Population by region · click slice to filter</h3>
+      <div style="position:relative;height:210px"><canvas id="dch"></canvas></div>
+      <div class="leg" id="leg2"></div>
+    </div>
+  </div>
+  <div class="dp">
+    <div style="font-size:12px;font-weight:600;color:#7986cb;margin-bottom:6px">⑥ Country Details (Elaborate)</div>
+    <div id="nsel" style="font-size:11px;color:#4a5080">Click any data point or map country to see full statistics here.</div>
+    <div id="cdet" style="display:none">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+        <div id="dd" style="width:13px;height:13px;border-radius:50%"></div>
+        <span id="dn" style="font-size:15px;font-weight:600"></span>
+      </div>
+      <div class="dg">
+        <div class="dc"><div class="dv" id="d1"></div><div class="dl">GDP (USD Trillion)</div></div>
+        <div class="dc"><div class="dv" id="d2"></div><div class="dl">Population (Millions)</div></div>
+        <div class="dc"><div class="dv" id="d3"></div><div class="dl">Life Expectancy (yrs)</div></div>
+        <div class="dc"><div class="dv" id="d4"></div><div class="dl">CO₂ Emissions (t/cap)</div></div>
+        <div class="dc"><div class="dv" id="d5"></div><div class="dl">Internet Usage (%)</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+const DATA=[
+  {name:"China",r:"Asia",iso:156,gdp:17.7,pop:1412,life:77.1,co2:7.4,net:73,lit:97},
+  {name:"India",r:"Asia",iso:356,gdp:3.5,pop:1380,life:70.2,co2:1.9,net:43,lit:74},
+  {name:"USA",r:"Americas",iso:840,gdp:25.5,pop:331,life:78.9,co2:14.2,net:92,lit:99},
+  {name:"Indonesia",r:"Asia",iso:360,gdp:1.3,pop:273,life:71.7,co2:2.3,net:54,lit:96},
+  {name:"Pakistan",r:"Asia",iso:586,gdp:0.37,pop:220,life:67.3,co2:0.9,net:36,lit:58},
+  {name:"Brazil",r:"Americas",iso:76,gdp:1.9,pop:214,life:75.9,co2:2.2,net:81,lit:93},
+  {name:"Nigeria",r:"Africa",iso:566,gdp:0.48,pop:211,life:55.2,co2:0.6,net:55,lit:62},
+  {name:"Bangladesh",r:"Asia",iso:50,gdp:0.46,pop:166,life:72.6,co2:0.6,net:38,lit:74},
+  {name:"Russia",r:"Europe",iso:643,gdp:2.2,pop:145,life:72.4,co2:11.6,net:88,lit:99},
+  {name:"Ethiopia",r:"Africa",iso:231,gdp:0.13,pop:120,life:66.6,co2:0.2,net:24,lit:51},
+  {name:"Mexico",r:"Americas",iso:484,gdp:1.3,pop:128,life:75.1,co2:3.7,net:76,lit:95},
+  {name:"Japan",r:"Asia",iso:392,gdp:4.2,pop:125,life:84.3,co2:8.7,net:93,lit:99},
+  {name:"Philippines",r:"Asia",iso:608,gdp:0.40,pop:111,life:71.2,co2:1.3,net:67,lit:98},
+  {name:"Egypt",r:"Africa",iso:818,gdp:0.39,pop:102,life:71.8,co2:2.4,net:72,lit:73},
+  {name:"DR Congo",r:"Africa",iso:180,gdp:0.06,pop:99,life:60.7,co2:0.03,net:17,lit:77},
+  {name:"Vietnam",r:"Asia",iso:704,gdp:0.41,pop:97,life:75.4,co2:3.5,net:73,lit:95},
+  {name:"Iran",r:"Asia",iso:364,gdp:0.68,pop:84,life:76.7,co2:7.8,net:79,lit:86},
+  {name:"Turkey",r:"Asia",iso:792,gdp:0.90,pop:85,life:77.7,co2:5.9,net:83,lit:96},
+  {name:"Germany",r:"Europe",iso:276,gdp:4.1,pop:83,life:81.3,co2:8.1,net:93,lit:99},
+  {name:"Thailand",r:"Asia",iso:764,gdp:0.50,pop:70,life:78.0,co2:3.8,net:78,lit:94},
+  {name:"UK",r:"Europe",iso:826,gdp:3.1,pop:68,life:81.3,co2:5.5,net:97,lit:99},
+  {name:"France",r:"Europe",iso:250,gdp:2.9,pop:68,life:82.5,co2:4.6,net:93,lit:99},
+  {name:"Tanzania",r:"Africa",iso:834,gdp:0.07,pop:61,life:65.5,co2:0.2,net:33,lit:78},
+  {name:"South Africa",r:"Africa",iso:710,gdp:0.41,pop:60,life:64.1,co2:7.0,net:68,lit:87},
+  {name:"Kenya",r:"Africa",iso:404,gdp:0.11,pop:54,life:66.7,co2:0.4,net:40,lit:82},
+  {name:"South Korea",r:"Asia",iso:410,gdp:1.7,pop:52,life:83.5,co2:11.9,net:97,lit:99},
+  {name:"Colombia",r:"Americas",iso:170,gdp:0.35,pop:51,life:77.1,co2:1.6,net:73,lit:95},
+  {name:"Spain",r:"Europe",iso:724,gdp:1.4,pop:47,life:83.5,co2:5.1,net:95,lit:98},
+  {name:"Argentina",r:"Americas",iso:32,gdp:0.63,pop:45,life:76.7,co2:4.0,net:88,lit:99},
+  {name:"Algeria",r:"Africa",iso:12,gdp:0.19,pop:44,life:76.9,co2:3.8,net:60,lit:81},
+  {name:"Ukraine",r:"Europe",iso:804,gdp:0.20,pop:44,life:72.1,co2:4.2,net:79,lit:99},
+  {name:"Canada",r:"Americas",iso:124,gdp:2.1,pop:38,life:82.3,co2:14.2,net:93,lit:99},
+  {name:"Poland",r:"Europe",iso:616,gdp:0.68,pop:38,life:77.8,co2:8.9,net:87,lit:99},
+  {name:"Morocco",r:"Africa",iso:504,gdp:0.14,pop:37,life:74.0,co2:1.7,net:84,lit:73},
+  {name:"Saudi Arabia",r:"Asia",iso:682,gdp:1.1,pop:35,life:75.1,co2:18.7,net:98,lit:97},
+  {name:"Peru",r:"Americas",iso:604,gdp:0.22,pop:33,life:77.3,co2:1.7,net:71,lit:94},
+  {name:"Malaysia",r:"Asia",iso:458,gdp:0.44,pop:33,life:76.2,co2:8.3,net:97,lit:95},
+  {name:"Angola",r:"Africa",iso:24,gdp:0.09,pop:33,life:61.2,co2:0.7,net:33,lit:66},
+  {name:"Ghana",r:"Africa",iso:288,gdp:0.08,pop:32,life:64.1,co2:0.5,net:53,lit:79},
+  {name:"Netherlands",r:"Europe",iso:528,gdp:1.0,pop:17,life:82.3,co2:9.6,net:96,lit:99},
+  {name:"Chile",r:"Americas",iso:152,gdp:0.31,pop:19,life:80.2,co2:4.6,net:92,lit:96},
+  {name:"Romania",r:"Europe",iso:642,gdp:0.30,pop:19,life:75.0,co2:3.9,net:87,lit:99},
+  {name:"Ecuador",r:"Americas",iso:218,gdp:0.10,pop:18,life:77.0,co2:2.8,net:69,lit:94},
+  {name:"Cambodia",r:"Asia",iso:116,gdp:0.03,pop:16,life:69.8,co2:0.7,net:60,lit:85},
+  {name:"Bolivia",r:"Americas",iso:68,gdp:0.04,pop:12,life:71.5,co2:1.8,net:54,lit:92},
+  {name:"Belgium",r:"Europe",iso:56,gdp:0.59,pop:11,life:82.0,co2:8.1,net:93,lit:99},
+  {name:"Sweden",r:"Europe",iso:752,gdp:0.59,pop:10,life:83.1,co2:3.8,net:97,lit:99},
+  {name:"Switzerland",r:"Europe",iso:756,gdp:0.81,pop:9,life:83.8,co2:4.3,net:96,lit:99},
+  {name:"Norway",r:"Europe",iso:578,gdp:0.58,pop:5,life:83.2,co2:8.3,net:99,lit:99},
+  {name:"Australia",r:"Oceania",iso:36,gdp:1.7,pop:26,life:83.4,co2:15.1,net:91,lit:99},
+  {name:"Italy",r:"Europe",iso:380,gdp:2.0,pop:60,life:83.6,co2:5.5,net:90,lit:99},
+  {name:"UAE",r:"Asia",iso:784,gdp:0.50,pop:10,life:78.0,co2:20.6,net:99,lit:93},
+  {name:"Singapore",r:"Asia",iso:702,gdp:0.47,pop:6,life:83.6,co2:7.4,net:93,lit:97},
+  {name:"Israel",r:"Asia",iso:376,gdp:0.52,pop:9,life:82.6,co2:7.4,net:92,lit:97},
+  {name:"Czech Republic",r:"Europe",iso:203,gdp:0.30,pop:11,life:79.1,co2:9.2,net:88,lit:99},
+  {name:"Greece",r:"Europe",iso:300,gdp:0.22,pop:11,life:82.2,co2:5.9,net:87,lit:98},
+  {name:"New Zealand",r:"Oceania",iso:554,gdp:0.25,pop:5,life:82.3,co2:6.5,net:92,lit:99},
+  {name:"Portugal",r:"Europe",iso:620,gdp:0.25,pop:10,life:82.1,co2:4.6,net:82,lit:96},
+  {name:"Hungary",r:"Europe",iso:348,gdp:0.18,pop:10,life:76.0,co2:4.4,net:87,lit:99},
+  {name:"Denmark",r:"Europe",iso:208,gdp:0.40,pop:6,life:81.4,co2:6.1,net:99,lit:99},
+  {name:"Finland",r:"Europe",iso:246,gdp:0.28,pop:6,life:81.8,co2:8.0,net:93,lit:99},
+  {name:"Cuba",r:"Americas",iso:192,gdp:0.09,pop:11,life:78.7,co2:1.7,net:71,lit:99},
+  {name:"Venezuela",r:"Americas",iso:862,gdp:0.10,pop:29,life:72.1,co2:2.7,net:72,lit:97},
+  {name:"Tunisia",r:"Africa",iso:788,gdp:0.05,pop:12,life:76.7,co2:2.5,net:67,lit:82},
+  {name:"Senegal",r:"Africa",iso:686,gdp:0.03,pop:17,life:67.9,co2:0.7,net:46,lit:56},
+  {name:"Cameroon",r:"Africa",iso:120,gdp:0.05,pop:27,life:59.3,co2:0.4,net:35,lit:77},
+  {name:"Sudan",r:"Africa",iso:729,gdp:0.16,pop:43,life:65.3,co2:0.5,net:28,lit:61},
+  {name:"Iraq",r:"Asia",iso:368,gdp:0.26,pop:41,life:70.6,co2:4.7,net:79,lit:85},
+  {name:"Nepal",r:"Asia",iso:524,gdp:0.04,pop:30,life:70.8,co2:0.5,net:53,lit:68},
+  {name:"Afghanistan",r:"Asia",iso:4,gdp:0.02,pop:40,life:64.5,co2:0.2,net:18,lit:43},
+  {name:"Sri Lanka",r:"Asia",iso:144,gdp:0.08,pop:22,life:77.0,co2:0.9,net:35,lit:92},
+  {name:"Kazakhstan",r:"Asia",iso:398,gdp:0.22,pop:19,life:72.6,co2:14.0,net:91,lit:99},
+  {name:"Uzbekistan",r:"Asia",iso:860,gdp:0.08,pop:34,life:71.6,co2:2.9,net:79,lit:99},
+  {name:"Qatar",r:"Asia",iso:634,gdp:0.24,pop:3,life:80.2,co2:32.9,net:99,lit:93},
+  {name:"Kuwait",r:"Asia",iso:414,gdp:0.16,pop:4,life:75.5,co2:23.7,net:99,lit:96},
+  {name:"Myanmar",r:"Asia",iso:104,gdp:0.06,pop:54,life:67.1,co2:0.6,net:39,lit:89},
+  {name:"Mali",r:"Africa",iso:466,gdp:0.02,pop:22,life:59.3,co2:0.2,net:32,lit:31},
+  {name:"Niger",r:"Africa",iso:562,gdp:0.01,pop:25,life:62.4,co2:0.1,net:17,lit:35},
+  {name:"Madagascar",r:"Africa",iso:450,gdp:0.02,pop:28,life:67.0,co2:0.2,net:20,lit:77},
+  {name:"Ivory Coast",r:"Africa",iso:384,gdp:0.07,pop:27,life:58.7,co2:0.5,net:46,lit:47},
+  {name:"Malawi",r:"Africa",iso:454,gdp:0.01,pop:20,life:64.3,co2:0.1,net:16,lit:62},
+  {name:"Zambia",r:"Africa",iso:894,gdp:0.03,pop:19,life:63.9,co2:0.3,net:40,lit:87},
+  {name:"Rwanda",r:"Africa",iso:646,gdp:0.01,pop:13,life:69.0,co2:0.1,net:30,lit:74},
+  {name:"Mozambique",r:"Africa",iso:508,gdp:0.02,pop:32,life:60.8,co2:0.1,net:17,lit:63},
+  {name:"Ireland",r:"Europe",iso:372,gdp:0.56,pop:5,life:82.4,co2:7.9,net:95,lit:99},
+  {name:"Austria",r:"Europe",iso:40,gdp:0.47,pop:9,life:81.6,co2:7.1,net:92,lit:99},
+  {name:"Panama",r:"Americas",iso:591,gdp:0.07,pop:4,life:78.5,co2:3.0,net:66,lit:95},
+  {name:"Paraguay",r:"Americas",iso:600,gdp:0.04,pop:7,life:74.3,co2:1.1,net:74,lit:95},
+  {name:"Uruguay",r:"Americas",iso:858,gdp:0.07,pop:4,life:77.9,co2:2.0,net:88,lit:99},
+  {name:"Haiti",r:"Americas",iso:332,gdp:0.02,pop:11,life:64.0,co2:0.3,net:39,lit:62},
+  {name:"Dominican Republic",r:"Americas",iso:214,gdp:0.09,pop:11,life:74.1,co2:2.4,net:77,lit:94},
+  {name:"Jordan",r:"Asia",iso:400,gdp:0.05,pop:10,life:74.8,co2:3.1,net:90,lit:98},
+  {name:"Oman",r:"Asia",iso:512,gdp:0.10,pop:4,life:77.9,co2:15.6,net:96,lit:93},
+  {name:"Azerbaijan",r:"Asia",iso:31,gdp:0.07,pop:10,life:72.9,co2:3.5,net:88,lit:99},
+  {name:"Georgia",r:"Asia",iso:268,gdp:0.02,pop:4,life:73.5,co2:2.2,net:78,lit:99}
+];
+const RC={Asia:"#4fc3f7",Europe:"#81c784",Africa:"#ff8a65",Americas:"#ce93d8",Oceania:"#fff176"};
+let xKey='gdp',yKey='life',mapKey='gdp',curView='scatter',isAbs=false,sel=null,hlR=null;
+let sC=null,bC=null,lC=null,dC=null,worldTopo=null;
+const xLab=()=>xKey==='gdp'?'GDP ($T)':xKey==='co2'?'CO₂ (t/cap)':'Internet (%)';
+const yLab=()=>yKey==='life'?'Life expectancy':yKey==='lit'?'Literacy (%)':'GDP ($T)';
+const mLab=()=>mapKey==='gdp'?'GDP ($T)':mapKey==='life'?'Life exp':mapKey==='co2'?'CO₂ (t/cap)':'Internet (%)';
+function filt(){const reg=document.getElementById('rf').value,gm=parseFloat(document.getElementById('gf').value)/10;let d=DATA.filter(c=>c.gdp>=gm);if(reg!=='all')d=d.filter(c=>c.r===reg);return d;}
+function absData(d){const m={};d.forEach(c=>{if(!m[c.r])m[c.r]={name:c.r,r:c.r,iso:null,gdp:0,pop:0,life:[],co2:[],net:[],lit:[]};m[c.r].gdp+=c.gdp;m[c.r].pop+=c.pop;m[c.r].life.push(c.life);m[c.r].co2.push(c.co2);m[c.r].net.push(c.net);m[c.r].lit.push(c.lit);});return Object.values(m).map(x=>({...x,life:+(x.life.reduce((a,b)=>a+b)/x.life.length).toFixed(1),co2:+(x.co2.reduce((a,b)=>a+b)/x.co2.length).toFixed(1),net:Math.round(x.net.reduce((a,b)=>a+b)/x.net.length),lit:Math.round(x.lit.reduce((a,b)=>a+b)/x.lit.length)}));}
+function updateStats(raw){document.getElementById('s1').textContent=isAbs?'5 regions':raw.length;document.getElementById('s2').textContent='$'+raw.reduce((a,c)=>a+c.gdp,0).toFixed(0)+'T';document.getElementById('s3').textContent=(raw.reduce((a,c)=>a+c.life,0)/raw.length).toFixed(1)+' yrs';document.getElementById('s4').textContent=Math.round(raw.reduce((a,c)=>a+c.net,0)/raw.length)+'%';}
+function buildLeg(id,click){document.getElementById(id).innerHTML=Object.entries(RC).map(([r,c])=>`<span class="li" onclick="${click?`filtR('${r}')`:''}""><span class="ld" style="background:${c}"></span>${r}</span>`).join('');}
+function filtR(r){document.getElementById('rf').value=r;fc();}
+const TT={backgroundColor:'#1a1d2e',titleColor:'#e8eaf6',bodyColor:'#aaa',borderColor:'#333',borderWidth:1};
+function drawAll(){
+  const raw=filt(),data=isAbs?absData(raw):raw;
+  document.getElementById('cnt').textContent=isAbs?'5 regions':raw.length+' countries';
+  updateStats(raw);
+  const maxP=Math.max(...data.map(c=>c.pop));
+  if(sC)sC.destroy();
+  if(curView==='scatter'){
+    document.getElementById('st').textContent='① '+xLab()+' vs '+yLab()+' — bubble=population · hover=connect · click=elaborate';
+    const ds=isAbs?[{label:'Regions',data:data.map(c=>({x:c[xKey],y:c[yKey],r:Math.max(12,Math.sqrt(c.pop/maxP)*55),_c:c})),backgroundColor:data.map(c=>RC[c.r]+'bb'),borderColor:data.map(c=>RC[c.r]),borderWidth:2}]:Object.keys(RC).map(reg=>{const pts=data.filter(c=>c.r===reg);return{label:reg,data:pts.map(c=>({x:c[xKey],y:c[yKey],r:Math.max(4,Math.sqrt(c.pop/maxP)*44),_c:c})),backgroundColor:pts.map(c=>c.name===sel?RC[reg]:(hlR&&hlR!==reg?RC[reg]+'22':RC[reg]+'88')),borderColor:pts.map(c=>c.name===sel?'#fff':RC[reg]),borderWidth:pts.map(c=>c.name===sel?2.5:1)};});
+    sC=new Chart(document.getElementById('sch').getContext('2d'),{type:'bubble',data:{datasets:ds},options:{responsive:true,maintainAspectRatio:false,layout:{padding:10},plugins:{legend:{display:false},tooltip:{...TT,callbacks:{title:()=>'',label:ctx=>{const c=ctx.raw._c;return`${c.name} | ${xLab()}: ${ctx.raw.x.toFixed(1)} | ${yLab()}: ${ctx.raw.y.toFixed(1)} | Pop: ${c.pop.toFixed(0)}M`;}}}},scales:{x:{title:{display:true,text:xLab(),color:'#8b92b8',font:{size:10}},type:xKey==='gdp'?'logarithmic':'linear',grid:{color:'rgba(255,255,255,0.05)'},ticks:{color:'#666',font:{size:9},maxTicksLimit:6}},y:{title:{display:true,text:yLab(),color:'#8b92b8',font:{size:10}},grid:{color:'rgba(255,255,255,0.05)'},ticks:{color:'#666',font:{size:9}}}},onClick:(e,els)=>{if(!els.length)return;selectC(sC.data.datasets[els[0].datasetIndex].data[els[0].index]._c);},onHover:(e,els)=>{if(els.length){const c=sC.data.datasets[els[0].datasetIndex].data[els[0].index]._c;setHL(c.r);}else setHL(null);}}});
+  } else {
+    const srt=[...raw].sort((a,b)=>b[xKey]-a[xKey]).slice(0,15);
+    document.getElementById('st').textContent='⑤ Bar: Top 15 by '+xLab()+' | click to elaborate';
+    sC=new Chart(document.getElementById('sch').getContext('2d'),{type:'bar',data:{labels:srt.map(c=>c.name),datasets:[{data:srt.map(c=>+c[xKey].toFixed(2)),backgroundColor:srt.map(c=>RC[c.r]+'99'),borderColor:srt.map(c=>RC[c.r]),borderWidth:1}]},options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',plugins:{legend:{display:false},tooltip:{...TT}},scales:{x:{ticks:{color:'#666',font:{size:9}},grid:{color:'rgba(255,255,255,0.05)'}},y:{ticks:{color:'#ccc',font:{size:9}},grid:{display:false}}},onClick:(e,els)=>{if(!els.length)return;selectC(srt[els[0].index]);}}});
+  }
+  const top10=[...raw].sort((a,b)=>b.gdp-a.gdp).slice(0,10);
+  if(bC)bC.destroy();
+  bC=new Chart(document.getElementById('bch').getContext('2d'),{type:'bar',data:{labels:top10.map(c=>c.name),datasets:[{data:top10.map(c=>+c.gdp.toFixed(2)),backgroundColor:top10.map(c=>RC[c.r]+'99'),borderColor:top10.map(c=>RC[c.r]),borderWidth:1}]},options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',plugins:{legend:{display:false},tooltip:{...TT,callbacks:{label:ctx=>`$${ctx.parsed.x.toFixed(2)}T`}}},scales:{x:{title:{display:true,text:'GDP ($T)',color:'#8b92b8',font:{size:10}},ticks:{color:'#666',font:{size:9}},grid:{color:'rgba(255,255,255,0.05)'}},y:{ticks:{color:'#ccc',font:{size:9}},grid:{display:false}}},onClick:(e,els)=>{if(!els.length)return;selectC(top10[els[0].index]);}}});
+  const regs=Object.keys(RC);
+  if(lC)lC.destroy();
+  lC=new Chart(document.getElementById('lch').getContext('2d'),{type:'bar',data:{labels:regs,datasets:[{type:'bar',label:'CO₂',data:regs.map(reg=>{const p=raw.filter(c=>c.r===reg);return p.length?+(p.reduce((a,c)=>a+c.co2,0)/p.length).toFixed(1):0;}),backgroundColor:regs.map(r=>RC[r]+'66'),borderColor:regs.map(r=>RC[r]),borderWidth:1,yAxisID:'y1'},{type:'line',label:'Life exp',data:regs.map(reg=>{const p=raw.filter(c=>c.r===reg);return p.length?+(p.reduce((a,c)=>a+c.life,0)/p.length).toFixed(1):0;}),borderColor:'#ff8a65',backgroundColor:'transparent',pointBackgroundColor:'#ff8a65',borderWidth:2,pointRadius:5,yAxisID:'y2'}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{...TT}},scales:{x:{ticks:{color:'#aaa',font:{size:10}},grid:{display:false}},y1:{position:'left',title:{display:true,text:'CO₂',color:'#8b92b8',font:{size:9}},ticks:{color:'#666',font:{size:8}},grid:{color:'rgba(255,255,255,0.05)'}},y2:{position:'right',title:{display:true,text:'Life exp',color:'#ff8a65',font:{size:9}},ticks:{color:'#ff8a65',font:{size:8}},grid:{display:false},min:50,max:88}}}});
+  const byR={};raw.forEach(c=>{if(!byR[c.r])byR[c.r]=0;byR[c.r]+=c.pop;});
+  const rk=Object.keys(byR);
+  if(dC)dC.destroy();
+  dC=new Chart(document.getElementById('dch').getContext('2d'),{type:'doughnut',data:{labels:rk,datasets:[{data:rk.map(r=>Math.round(byR[r])),backgroundColor:rk.map(r=>RC[r]+'99'),borderColor:rk.map(r=>RC[r]),borderWidth:hlR?rk.map(r=>r===hlR?3:0.5):[1,1,1,1,1],hoverOffset:8}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{...TT,callbacks:{label:ctx=>`${ctx.label}: ${Math.round(ctx.parsed)}M`}}},onClick:(e,els)=>{if(!els.length)return;filtR(rk[els[0].index]);}}});
+  buildLeg('leg1',false);buildLeg('leg2',true);
+  if(!worldTopo){document.getElementById('mapwrap').innerHTML='<div style="text-align:center;padding:28px 0;font-size:11px;color:#4a5080">Loading world map...</div>';d3.json('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json').then(t=>{worldTopo=t;renderMap(raw);}).catch(()=>{document.getElementById('mapwrap').innerHTML='<div style="padding:16px;font-size:11px;color:#4a5080">Map unavailable — use charts above.</div>';});}else renderMap(raw);
+}
+function renderMap(raw){
+  const wrap=document.getElementById('mapwrap');wrap.innerHTML='';
+  const W=wrap.clientWidth||320,H=Math.round(W*0.52);
+  const byIso={};raw.forEach(c=>{if(c.iso)byIso[c.iso]=c;});
+  const vals=raw.map(c=>c[mapKey]).filter(v=>v>0);
+  const mn=Math.min(...vals),mx=Math.max(...vals);
+  const cs=d3.scaleSequential([mn,mx],d3.interpolateYlOrRd);
+  const svg=d3.select(wrap).append('svg').attr('id','mapsvg').attr('viewBox',`0 0 ${W} ${H}`).attr('width','100%');
+  const proj=d3.geoNaturalEarth1().scale(W/6.4).translate([W/2,H/2+4]);
+  const path=d3.geoPath(proj);
+  svg.selectAll('path').data(topojson.feature(worldTopo,worldTopo.objects.countries).features).join('path').attr('d',path).attr('fill',d=>{const c=byIso[+d.id];return c?cs(c[mapKey]):'#2a2a3a';}).attr('stroke','rgba(255,255,255,0.1)').attr('stroke-width',0.3).on('click',(_,d)=>{const c=byIso[+d.id];if(c)selectC(c);}).append('title').text(d=>{const c=byIso[+d.id];return c?`${c.name}: ${mLab()} = ${c[mapKey].toFixed(1)}`:''});
+  const lg=svg.append('g').attr('transform',`translate(${W*0.05},${H-14})`);
+  const lw=W*0.3,lh=5,defs=svg.append('defs'),grad=defs.append('linearGradient').attr('id','lg').attr('x1','0%').attr('x2','100%');
+  [0,.25,.5,.75,1].forEach(t=>grad.append('stop').attr('offset',t*100+'%').attr('stop-color',cs(mn+(mx-mn)*t)));
+  lg.append('rect').attr('width',lw).attr('height',lh).attr('fill','url(#lg)').attr('rx',2);
+  [[0,mn],[0.5,(mn+mx)/2],[1,mx]].forEach(([t,v])=>lg.append('text').attr('x',t*lw).attr('y',lh+9).attr('text-anchor','middle').attr('font-size',7).attr('fill','#aaa').text(mapKey==='gdp'?'$'+v.toFixed(0)+'T':v.toFixed(0)));
+  document.getElementById('mt').textContent='③ World map — '+mLab()+' · click a country to elaborate';
+}
+function selectC(c){sel=c.name;document.getElementById('nsel').style.display='none';document.getElementById('cdet').style.display='block';document.getElementById('dd').style.background=RC[c.r];document.getElementById('dn').textContent=c.name+' · '+c.r;document.getElementById('d1').textContent='$'+c.gdp.toFixed(2)+'T';document.getElementById('d2').textContent=c.pop.toFixed(0)+'M';document.getElementById('d3').textContent=c.life.toFixed(1)+' yrs';document.getElementById('d4').textContent=c.co2.toFixed(1);document.getElementById('d5').textContent=c.net+'%';drawAll();}
+function setHL(r){if(hlR===r)return;hlR=r;drawAll();}
+function setX(k){xKey=k;document.querySelectorAll('.enc').forEach(b=>b.classList.remove('on'));document.getElementById('ex-'+k).classList.add('on');drawAll();}
+function setY(k){yKey=k;document.querySelectorAll('.enc').forEach(b=>b.classList.remove('on'));document.getElementById('ey-'+k).classList.add('on');drawAll();}
+function setMap(k){mapKey=k;document.querySelectorAll('.menc').forEach(b=>b.classList.remove('on'));document.getElementById('mc-'+k).classList.add('on');if(worldTopo)renderMap(filt());else drawAll();}
+function setView(v){curView=v;document.getElementById('vs').classList.toggle('on',v==='scatter');document.getElementById('vb').classList.toggle('on',v==='bar');drawAll();}
+function toggleAbs(){isAbs=!isAbs;const b=document.getElementById('ab');b.style.background=isAbs?'#e65100':'#0f1117';b.style.color=isAbs?'#ffe0b2':'#8b92b8';b.textContent=isAbs?'⑦ Country detail':'⑦ Regional avg';drawAll();}
+function fc(){document.getElementById('gv').textContent='≥ $'+(parseFloat(document.getElementById('gf').value)/10).toFixed(1)+'T';drawAll();}
+document.getElementById('rf').addEventListener('change',fc);
+document.getElementById('gf').addEventListener('input',fc);
+drawAll();
+</script>
+</body>
+</html>
